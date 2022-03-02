@@ -62,7 +62,7 @@ export const Login = async (req: Request, res: Response) => {
       return res.status(400).send({ message: "Invalid password." });
     }
 
-    const token = sign({ id: user.id }, "secret");
+    const token = sign({ id: user.id }, process.env.SECRET_KEY);
 
     res.cookie("jwt", token, { httpOnly: true, maxAge: 24 * 60 * 60 * 1000 });
 
@@ -80,7 +80,7 @@ export const AuthenticatedUser = async (req: Request, res: Response) => {
   try {
     const jwt = req.cookies["jwt"];
 
-    const payload: any = verify(jwt, "secret");
+    const payload: any = verify(jwt, process.env.SECRET_KEY);
 
     if (!payload) {
       return res.status(401).send({ message: "Unauthorized" });
