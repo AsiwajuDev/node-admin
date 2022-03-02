@@ -6,72 +6,98 @@ import bcyrptjs from "bcryptjs";
 import { sign, verify } from "jsonwebtoken";
 
 export const Register = async (req: Request, res: Response) => {
-  const body = req.body;
+  try {
+    const body = req.body;
 
-  const { error } = RegisterValidation.validate(body);
+    const { error } = RegisterValidation.validate(body);
 
-  if (error) {
-    return res.status(400).send(error.details);
+    if (error) {
+      return res.status(400).send(error.details);
+    }
+
+    if (body.password !== body.password_confirmation) {
+      return res.status(400).send({ message: "Password do not match." });
+    }
+
+    const repository = getManager().getRepository(User);
+
+    const exist = await repository.findOne({
+      where: { email: body.email },
+    });
+
+    if (exist) {
+      return res.status(400).send({ message: "Email already exist." });
+    }
+
+    const { password, ...user } = await repository.save({
+      first_name: body.first_name,
+      last_name: body.last_name,
+      email: body.email,
+      password: await bcyrptjs.hash(body.password, 10),
+    });
+
+    res.send(user);
+  } catch (error) {
+    return res.status(400).send({ message: "Something went wrong." });
   }
-
-  if (body.password !== body.password_confirmation) {
-    return res.status(400).send({ message: "Password do not match." });
-  }
-
-  const repository = getManager().getRepository(User);
-
-  const { password, ...user } = await repository.save({
-    first_name: body.first_name,
-    last_name: body.last_name,
-    email: body.email,
-    password: await bcyrptjs.hash(body.password, 10),
-  });
-
-  res.send(user);
 };
 
 export const Login = async (req: Request, res: Response) => {
-  const body = req.body;
+  try {
+    const body = req.body;
 
-  const repository = getManager().getRepository(User);
+    const repository = getManager().getRepository(User);
 
-  const user = await repository.findOne({
-    where: { email: body.email },
-  });
+    const user = await repository.findOne({
+      where: { email: body.email },
+    });
 
-  if (!user) {
-    return res.status(404).send({ message: "User not found." });
+    if (!user) {
+      return res.status(404).send({ message: "User not found." });
+    }
+
+    const isValid = await bcyrptjs.compare(body.password, user.password);
+
+    if (!isValid) {
+      return res.status(400).send({ message: "Invalid password." });
+    }
+
+    const token = sign({ id: user.id }, "secret");
+
+    res.cookie("jwt", token, { httpOnly: true, maxAge: 24 * 60 * 60 * 1000 });
+
+    const { password, ...userData } = user;
+
+    res.send({
+      message: "Logged in successfully.",
+    });
+  } catch (error) {
+    return res.status(400).send({ message: "Invalid credentials." });
   }
-
-  const isValid = await bcyrptjs.compare(body.password, user.password);
-
-  if (!isValid) {
-    return res.status(400).send({ message: "Invalid password." });
-  }
-
-  const token = sign({ id: user.id }, "secret");
-
-  res.cookie("jwt", token, { httpOnly: true, maxAge: 24 * 60 * 60 * 1000 });
-
-  const { password, ...userData } = user;
-
-  res.send({
-    message: "Logged in successfully.",
-  });
 };
 
 export const AuthenticatedUser = async (req: Request, res: Response) => {
-  const jwt = req.cookies["jwt"];
+  try {
+    const jwt = req.cookies["jwt"];
 
-  const payload: any = verify(jwt, "secret");
+    const payload: any = verify(jwt, "secret");
 
-  if (!payload) {
+    if (!payload) {
+      return res.status(401).send({ message: "Unauthorized" });
+    }
+
+    const repository = getManager().getRepository(User);
+
+    const { password, ...user } = await repository.findOne(payload.id);
+
+    res.send(user);
+  } catch (error) {
     return res.status(401).send({ message: "Unauthorized" });
   }
+};
 
-  const repository = getManager().getRepository(User);
+export const Logout = async (req: Request, res: Response) => {
+  res.cookie("jwt", "", { maxAge: 0 });
 
-  const { password, ...user } = await repository.findOne(payload.id);
-
-  res.send(user);
+  res.send({ message: "Logged out successfully." });
 };
