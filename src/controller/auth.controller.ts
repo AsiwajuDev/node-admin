@@ -3,7 +3,8 @@ import { getManager } from "typeorm";
 import { User } from "../entity/user.entity";
 import { RegisterValidation } from "../validation/register.validation";
 import bcyrptjs from "bcryptjs";
-import { sign, verify } from "jsonwebtoken";
+import { sign } from "jsonwebtoken";
+import { LoginValidation } from "../validation/login.validation";
 
 export const Register = async (req: Request, res: Response) => {
   try {
@@ -46,6 +47,12 @@ export const Login = async (req: Request, res: Response) => {
   try {
     const body = req.body;
 
+    const { error } = LoginValidation.validate(body);
+
+    if (error) {
+      return res.status(400).send(error.details);
+    }
+
     const repository = getManager().getRepository(User);
 
     const user = await repository.findOne({
@@ -65,8 +72,6 @@ export const Login = async (req: Request, res: Response) => {
     const token = sign({ id: user.id }, process.env.SECRET_KEY);
 
     res.cookie("jwt", token, { httpOnly: true, maxAge: 24 * 60 * 60 * 1000 });
-
-    const { password, ...userData } = user;
 
     res.send({
       message: "Logged in successfully.",

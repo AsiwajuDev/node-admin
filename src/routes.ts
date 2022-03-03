@@ -5,7 +5,7 @@ import {
   Logout,
   Register,
 } from "./controller/auth.controller";
-import { UpdateInfo } from "./controller/profile.controller";
+import { UpdateInfo, UpdatePassword } from "./controller/profile.controller";
 import { AuthMiddleware } from "./middleware/auth.middleware";
 
 export const routes = (router: Router) => {
@@ -14,4 +14,5 @@ export const routes = (router: Router) => {
   router.get("/api/user", AuthMiddleware, AuthenticatedUser);
   router.post("/api/logout", AuthMiddleware, Logout);
   router.put("/api/user/info", AuthMiddleware, UpdateInfo);
+  router.put("/api/user/password", AuthMiddleware, UpdatePassword);
 };
